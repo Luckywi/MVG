@@ -16,7 +16,6 @@ const bookSchema = mongoose.Schema({
   ],
   averageRating: { type: Number, default: 0 }
 }, { 
-  timestamps: true // Ajoute createdAt et updatedAt automatiquement
 });
 
 module.exports = mongoose.model('Book', bookSchema);
