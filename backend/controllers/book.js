@@ -40,8 +40,6 @@ exports.NouveauLivre = (req, res, next) => {
     // Construisez l'URL de l'image à partir des informations du fichier
     imageUrl: req.file ? `${req.protocol}://${req.get('host')}/images/${req.file.filename}` : bookObject.imageUrl,
     // Initialisez les ratings et averageRating
-    ratings: [],
-    averageRating: 0
   });
 
   // Sauvegardez le livre dans la base de données
