@@ -1,4 +1,6 @@
 const multer = require('multer');
+const sharp = require('sharp');
+const fs = require('fs');
 
 const MIME_TYPES = {
   'image/jpg': 'jpg',
@@ -17,4 +19,34 @@ const storage = multer.diskStorage({
   }
 });
 
-module.exports = multer({ storage: storage }).single('image');
+const upload = multer({ storage: storage }).single('image');
+
+// Middleware d'optimisation d'image
+module.exports = (req, res, next) => {
+  upload(req, res, function(err) {
+    if (err) {
+      return next(err);
+    }
+    
+    if (!req.file) {
+      return next();
+    }
+    
+    // Chemin du fichier original
+    const filePath = req.file.path;
+    
+    // Optimiser l'image
+    sharp(filePath)
+      .resize(800) 
+      .jpeg({ quality: 80 }) 
+      .toBuffer()
+      .then(buffer => {
+        // Écraser le fichier original avec la version optimisée
+        fs.writeFile(filePath, buffer, (err) => {
+          if (err) return next(err);
+          next();
+        });
+      })
+      .catch(err => next(err));
+  });
+};
