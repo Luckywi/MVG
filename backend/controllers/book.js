@@ -30,16 +30,15 @@ exports.MeilleurNotes = (req, res, next) => {
 };
 
 exports.NouveauLivre = (req, res, next) => {
-  // Parsez l'objet livre depuis la requête
-  // Si la requête est envoyée avec form-data (à cause de l'image), req.body.book sera une chaîne
-  const bookObject = req.body.book ? JSON.parse(req.body.book) : req.body;
+
+  // La requête est forcemment envoyée avec form-data car imageURL est required donc on parse en JSON le corp de la requete 
+  const bookObject = JSON.parse(req.body.book);
   
   // Créez un nouveau livre avec les données envoyées
   const book = new Book({
     ...bookObject,
-    // Construisez l'URL de l'image à partir des informations du fichier
-    imageUrl: req.file ? `${req.protocol}://${req.get('host')}/images/${req.file.filename}` : bookObject.imageUrl,
-    // Initialisez les ratings et averageRating
+    // On indique précisement ce que doit contennir le champ imageUrl
+    imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
   });
 
   // Sauvegardez le livre dans la base de données
@@ -81,12 +80,7 @@ exports.AjouterNote = (req, res, next) => {
 
 exports.ModifierLivre = (req, res, next) => {
     // On vérifie si une nouvelle image est fournie
-    const bookObject = req.file ? 
-    {
-      ...JSON.parse(req.body.book),
-      imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-    } : { ...req.body };
-  
+    const bookObject = req.file ? {...JSON.parse(req.body.book),imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`} : { ...req.body };
     // Suppression de l'_id envoyé par le client pour éviter les conflits
     delete bookObject._userId;
     
@@ -97,8 +91,8 @@ exports.ModifierLivre = (req, res, next) => {
           return res.status(403).json({ message: 'Non autorisé' });
         }
         
-        // Si on a une nouvelle image, il faut supprimer l'ancienne
-        const oldImagePath = book.imageUrl ? book.imageUrl.split('/images/')[1] : null;
+      
+        const oldImagePath = book.imageUrl.split('/images/')[1];
         
         // Mise à jour avec updateOne
         Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
@@ -115,6 +109,19 @@ exports.ModifierLivre = (req, res, next) => {
       })
       .catch(error => res.status(404).json({ error }));
   };
+
+  // Le contoller Modifier LIvre qui correspont au endpoint PUT /:id permet de modifier le corp d'un objet livre et de gerer la modification de l'image si modification il y'a.
+  //On commence par déclarer un bookObjet qui contindra le corp du book modifié, book object commence par  vérifier si un nouveau fichier est présent dans forumalire du livre
+  // si un fichier est présent il parse le corp du livre en JSON en extrait le champ imageUrl et associes le chemin du nouveua fichier détécter (le fichier aura preéalablement ete traiter et renommer grace a multer)
+  // Si aucun nouveau fichier n'est detecter on renvoi simplment le corp de l'objet (automatiquement parser grace au middlewear présent dans pp.js), si il y'a eu des modificaiton sur certaine chaine de caractére comme le titre ou la descriptions alors ces modiifcation sont enregistrer dans bookObject, et tout les champas pas modifier reste les même.
+  // on supprime le _userID automatiquement associer au bookObject pour eviter des conflit, même si on utilise (book.userId != req.auth.userId) pour vérifier les autorisation ca permet de fair en sorte que l'userID associer au livre ne puisse jamais etre modifié de quelconque manière.
+  // Ensuite grace a l'operateur "findOne" de mongoose on cherche dans la base de donner la collection Book et on cherche l'object de cette collection qui correspond a l'id du livre présent dans l'url 
+  // Si le champ userId present dans le livre qu'on vien de récuperer via l'url n'est pas égale au userid de la perssone connecter (on verifie le grace au middlewear auth et au JWT) alors on renvoie un erreur 403 et la modificaation n'est pas autorisée 
+  // On récuper le nom du fichier présent dans l'objet book qu'on vient de récuperer grace a oldImgaePath qui récupere le champ imageUrl et qui en extrait uniquement le nom du fichie 
+  // Ensuite grace a la fonctionalité updateOne de mongoose on va pouvoir updater l'objet de la collection book récuperer avec l'id présent dans l'url et donner a cette objet le corp de bookObject (qui va remplacer l'ancine corp) qu'on a déclarer plus haut qui contient tout les modifications apporter ainsi que les champs qui non pas ete modifié 
+  // Si on récuper un nouvau fichier dans le formulaire et qu''on a le chemin de l'ancien fichier on utilise file systéme pour supprimer l'ancien fichier du dossier photo, si la suppression ne fonctionne pas on renvoie simplement une erruer dans la console sans mettre fin au procces d'udpate 
+  //Enfin si UpdateOne a fonctionne on renvoie un succé 200 sinon on envoie une erreur 400 (server) et si findOne n'aboutit pas on renvoie une erreur 404(introuvable)
+
 
   exports.SupprimerLivre = (req, res, next) => {
     Book.findOne({ _id: req.params.id })

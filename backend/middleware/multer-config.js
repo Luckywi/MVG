@@ -37,7 +37,12 @@ module.exports = (req, res, next) => {
     
     // Optimiser l'image
     sharp(filePath)
-      .resize(800) 
+      .resize({
+        width: 463,
+        height: 595,
+        fit: sharp.fit.cover,
+        position: 'centre',
+      }) 
       .jpeg({ quality: 80 }) 
       .toBuffer()
       .then(buffer => {
