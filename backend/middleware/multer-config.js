@@ -1,6 +1,6 @@
 const multer = require('multer');
 const sharp = require('sharp');
-const fs = require('fs');
+const fs = require('fs').promises;
 
 const MIME_TYPES = {
   'image/jpg': 'jpg',
@@ -13,9 +13,12 @@ const storage = multer.diskStorage({
     callback(null, 'images');
   },
   filename: (req, file, callback) => {
-    const name = file.originalname.split(' ').join('_');
+    // Extraire le nom de base sans l'extension
+    const nameWithoutExt = file.originalname.split('.').slice(0, -1).join('.');
+    // Remplacer les espaces par des underscores
+    const name = nameWithoutExt.split(' ').join('_');
     const extension = MIME_TYPES[file.mimetype];
-    callback(null, name + Date.now() + '.' + extension);
+    callback(null, name + '_' + Date.now() + '.' + extension);
   }
 });
 
@@ -25,33 +28,32 @@ const upload = multer({ storage: storage }).single('image');
 module.exports = (req, res, next) => {
   upload(req, res, function(err) {
     if (err) {
-      return next(err);
+      return res.status(400).json({ message: "Erreur lors du téléchargement de l'image" });
     }
     
     if (!req.file) {
       return next();
     }
     
-    // Chemin du fichier original
     const filePath = req.file.path;
     
-    // Optimiser l'image
-    sharp(filePath)
+    let sharpImage = sharp(filePath)
       .resize({
         width: 463,
         height: 595,
         fit: sharp.fit.cover,
-        position: 'centre',
-      }) 
-      .jpeg({ quality: 80 }) 
-      .toBuffer()
-      .then(buffer => {
-        // Écraser le fichier original avec la version optimisée
-        fs.writeFile(filePath, buffer, (err) => {
-          if (err) return next(err);
-          next();
-        });
-      })
-      .catch(err => next(err));
+        position: 'center',
+      });
+    
+    if (req.file.mimetype === 'image/png') {
+      sharpImage = sharpImage.png({ quality: 80 });
+    } else {
+      sharpImage = sharpImage.jpeg({ quality: 80 });
+    }
+    
+    sharpImage.toBuffer()
+      .then(buffer => fs.writeFile(filePath, buffer))
+      .then(() => next())
+      .catch(error => res.status(500).json({ error }));
   });
 };

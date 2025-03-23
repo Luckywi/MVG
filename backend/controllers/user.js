@@ -35,7 +35,7 @@ exports.signup = (req, res, next) => {
                         token: jwt.sign(
                             { userId: user._id },
                             process.env.JWT_SECRET,
-                            { expiresIn: '24h' }
+                            { expiresIn: '6h' }
                         )
                     });
                 })
@@ -43,3 +43,4 @@ exports.signup = (req, res, next) => {
         })
         .catch(error => res.status(500).json({ error }));
  };
+
